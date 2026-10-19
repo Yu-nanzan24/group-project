@@ -1,2 +1,2 @@
-# tcp-service-group
+# group-project
 グループ課題
