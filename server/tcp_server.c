@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,7 +58,7 @@ int main(void)
 {
     int listen_fd = -1, client_fd = -1, status = EXIT_FAILURE;
     struct sockaddr_in addr = {0};
-    char buf[1024];
+    char buf[1024], response[1024];
     ssize_t n;
 
     signal(SIGPIPE, SIG_IGN);
@@ -106,19 +107,75 @@ int main(void)
            listen_fd, client_fd);
     fflush(stdout);
 
-    /* STEP 5: 文字列を受信して大文字に変換する */
+    /* STEP 5: 文字列を受信してコマンドを処理する */
     status = EXIT_SUCCESS;
     while ((n = read_line(client_fd, buf, sizeof(buf))) > 0) {
         printf("client -> %s", buf);
         fflush(stdout);
 
-        /* 小文字を大文字に変換 */
-        for (int i = 0; buf[i] != '\0'; i++) {
-            buf[i] = (char)toupper((unsigned char)buf[i]);
+        /* 行末の改行を取り除く */
+        buf[n - 1] = '\0';
+
+        char *text = NULL;
+
+        /* UPPER: 小文字を大文字に変換 */
+        if (strncmp(buf, "UPPER ", 6) == 0) {
+            text = buf + 6;
+
+            if (*text == '\0') {
+                snprintf(response, sizeof(response),
+                         "ERROR invalid-argument\n");
+            } else {
+                for (int i = 0; text[i] != '\0'; i++) {
+                    text[i] = (char)toupper((unsigned char)text[i]);
+                }
+                snprintf(response, sizeof(response), "OK %s\n", text);
+            }
+
+        /* LOWER: 大文字を小文字に変換 */
+        } else if (strncmp(buf, "LOWER ", 6) == 0) {
+            text = buf + 6;
+
+            if (*text == '\0') {
+                snprintf(response, sizeof(response),
+                         "ERROR invalid-argument\n");
+            } else {
+                for (int i = 0; text[i] != '\0'; i++) {
+                    text[i] = (char)tolower((unsigned char)text[i]);
+                }
+                snprintf(response, sizeof(response), "OK %s\n", text);
+            }
+
+        /* LENGTH: 文字列のバイト数を返す */
+        } else if (strncmp(buf, "LENGTH ", 7) == 0) {
+            text = buf + 7;
+
+            if (*text == '\0') {
+                snprintf(response, sizeof(response),
+                         "ERROR invalid-argument\n");
+            } else {
+                snprintf(response, sizeof(response), "OK %zu\n",
+                         strlen(text));
+            }
+
+        /* コマンド名だけで引数がない場合 */
+        } else if (strcmp(buf, "UPPER") == 0 ||
+                   strcmp(buf, "LOWER") == 0 ||
+                   strcmp(buf, "LENGTH") == 0) {
+            snprintf(response, sizeof(response),
+                     "ERROR invalid-argument\n");
+
+        /* 未対応のコマンド */
+        } else {
+            snprintf(response, sizeof(response),
+                     "ERROR unknown-command\n");
         }
 
-        /* 変換した文字列を返す */
-        if (write_all(client_fd, buf, (size_t)n) < 0) break;
+        /* 処理結果を返す */
+        if (write_all(client_fd, response, strlen(response)) < 0) {
+            status = EXIT_FAILURE;
+            break;
+        }
     }
 
     if (n < 0) {
