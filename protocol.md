@@ -4,6 +4,7 @@
 ## 2. TCP port：待受portとclientの接続先の指定方法。
 - 待受portは5000番、クライアントの実行時に、サーバーのIPアドレスを第1引数、ポート番号を第2引数として入力する。
 ## 3. request format：3種類以上のrequest名、引数、書式、具体例。
+
 - クライアント具体例:text > feS50D2w
 　                  converted > FES50D2W
 - サーバー具体例:client -> feS50D2w
@@ -12,3 +13,19 @@
 ## 4. error response：どの入力・状態でどのerrorを返すか。書式と具体例。
 - サーバーが待ち受けしていないときに接続しようとした場合、`connect: Connection refused`とメッセージが表示され終了する。
 - コマンドライン引数が少ない場合、`Usage: tcp_client IPv4 PORT`と表示され終了する。
+
+#　以下10/20追記分
+
+## 5.追加リクエスト
+- UPPER <text>
+    request: UPPER hello\n
+    response:OK HELLO\n
+- LOWER <text>
+    request: LOWER HELLO\n
+    response:OK hello\n
+- LENGTH <text>
+    request:LENGTH hello\n
+    response:OK 5\n
+## 6.エラー
+- abc\n -> ERROR unknown-command\n
+- UPPER\n -> ERROR invalid-argument\n
