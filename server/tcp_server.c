@@ -8,6 +8,8 @@
 #include <ctype.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 /* TCPは1行ずつ通信する */
 static ssize_t read_line(int fd, char *buf, size_t capacity)
@@ -54,62 +56,11 @@ static int write_all(int fd, const char *buf, size_t length)
     return 0;
 }
 
-int main(void)
-{
-    int listen_fd = -1, client_fd = -1, status = EXIT_FAILURE;
-    struct sockaddr_in addr = {0};
+void handle_client(int fd){
     char buf[1024], response[1024];
     ssize_t n;
 
-    signal(SIGPIPE, SIG_IGN);
-
-    /* STEP 1: ソケットを作成 */
-    listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listen_fd < 0) {
-        perror("socket");
-        goto done;
-    }
-
-    int yes = 1;
-    if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR,
-                   &yes, sizeof(yes)) < 0) {
-        perror("setsockopt");
-        goto done;
-    }
-
-    /* STEP 2: ポート5000を設定 */
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(5000);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    if (bind(listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        perror("bind");
-        goto done;
-    }
-
-    /* STEP 3: 接続を待つ */
-    if (listen(listen_fd, 5) < 0) {
-        perror("listen");
-        goto done;
-    }
-
-    puts("LISTEN 0.0.0.0:5000");
-    fflush(stdout);
-
-    /* STEP 4: クライアントを受け付ける */
-    client_fd = accept(listen_fd, NULL, NULL);
-    if (client_fd < 0) {
-        perror("accept");
-        goto done;
-    }
-
-    printf("connected: listen_fd=%d client_fd=%d\n",
-           listen_fd, client_fd);
-    fflush(stdout);
-
-    /* STEP 5: 文字列を受信してコマンドを処理する */
-    status = EXIT_SUCCESS;
-    while ((n = read_line(client_fd, buf, sizeof(buf))) > 0) {
+     while ((n = read_line(fd, buf, sizeof(buf))) > 0) {
         printf("client -> %s", buf);
         fflush(stdout);
 
@@ -172,23 +123,78 @@ int main(void)
         }
 
         /* 処理結果を返す */
-        if (write_all(client_fd, response, strlen(response)) < 0) {
-            status = EXIT_FAILURE;
-            break;
+        if (write_all(fd, response, strlen(response)) < 0) {
+            return;
         }
     }
 
     if (n < 0) {
         perror("read_line");
-        status = EXIT_FAILURE;
+    }
+}
+
+int main(void)
+{
+    int listen_fd = -1;
+    struct sockaddr_in addr = {0};
+    /*クライアントの突然の切断の対処*/
+    signal(SIGPIPE, SIG_IGN);
+    /*終了した子プロセスを回収する*/
+    signal(SIGCHLD, SIG_IGN);
+
+    /* STEP 1: ソケットを作成 */
+    listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (listen_fd < 0) {
+        perror("socket");
+        goto done;
     }
 
-    puts("connection closed; restart server for the next client");
+    int yes = 1;
+    if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR,
+                   &yes, sizeof(yes)) < 0) {
+        perror("setsockopt");
+        goto done;
+    }
 
-done:
+    /* STEP 2: ポート5000を設定 */
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(5000);
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (bind(listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        perror("bind");
+        goto done;
+    }
+
+    /* STEP 3: 接続を待つ */
+    if (listen(listen_fd, 5) < 0) {
+        perror("listen");
+        goto done;
+    }
+
+    puts("LISTEN 0.0.0.0:5000");
+    fflush(stdout);
+
+    /* STEP 4: クライアントを受け付ける */
+    for (;;) {
+        int fd = accept(listen_fd, NULL, NULL);
+        if (fd < 0) {
+            if (errno == EINTR) continue;
+            perror("accept"); break;
+    }
+    pid_t pid = fork();
+    if (pid < 0) { perror("fork"); close(fd); continue; }
+    if (pid == 0) {
+        close(listen_fd); handle_client(fd);
+        close(fd); _exit(0);
+        }
+    close(fd);
+    }
+    /* STEP 5: 文字列を受信してコマンドを処理する */
+
     /* STEP 6: ソケットを閉じる */
-    if (client_fd >= 0) close(client_fd);
-    if (listen_fd >= 0) close(listen_fd);
+done:
+    close(listen_fd);
 
-    return status;
+    return EXIT_FAILURE;
 }
