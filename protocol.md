@@ -16,7 +16,20 @@
 
 #　以下10/20追記分
 
-## 5.追加リクエスト
+# protocol更新(10/27発表分)
+
+## 5.TCPportと接続の規格
+- 第1引数は接続先のIPアドレスを指定
+- 第2引数のport番号は5000番 
+- 通信が開始したあと、Ctrl+Dによって通信を終了させるまでrequestを送ることが出来る。
+## 6.request終端、argumentの有無・形式・許容値。
+- request終端には改行文字\nを用いる。
+- request名の後に半角スペースをいれて、処理を行う文字列を指定する。この引数がない場合、エラーが表示される。
+- コマンド名は大文字で固定
+
+## 7. success response とerror response の書式・終端・具体例。
+
+### success response
 - UPPER <text>
     request: UPPER hello\n
     response:OK HELLO\n
@@ -26,6 +39,7 @@
 - LENGTH <text>
     request:LENGTH hello\n
     response:OK 5\n
-## 6.エラー
-- abc\n -> ERROR unknown-command\n
+
+### error response
+- hello\n -> ERROR unknown-command\n
 - UPPER\n -> ERROR invalid-argument\n
