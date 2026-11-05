@@ -30,13 +30,13 @@
 ## 7. success response とerror response の書式・終端・具体例。
 
 ### success response
-- UPPER <text>
+- UPPER <escape><text></escape>
     request: UPPER hello\n
     response:OK HELLO\n
-- LOWER <text>
+- LOWER <escape><text></escape>
     request: LOWER HELLO\n
     response:OK hello\n
-- LENGTH <text>
+- LENGTH <escape><text></escape>
     request:LENGTH hello\n
     response:OK 5\n
 
