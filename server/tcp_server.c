@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 
 /* TCPは1行ずつ通信する */
 static ssize_t read_line(int fd, char *buf, size_t capacity)
@@ -69,6 +70,10 @@ void handle_client(int fd){
 
         char *text = NULL;
 
+        fprintf(stderr, "start pid=%ld fd=%d t=%ld\n",
+            (long)getpid(), fd, (long)time(NULL));
+        sleep(5);
+
         /* UPPER: 小文字を大文字に変換 */
         if (strncmp(buf, "UPPER ", 6) == 0) {
             text = buf + 6;
@@ -126,6 +131,8 @@ void handle_client(int fd){
         if (write_all(fd, response, strlen(response)) < 0) {
             return;
         }
+        fprintf(stderr, "end   pid=%ld fd=%d t=%ld\n",
+            (long)getpid(), fd, (long)time(NULL)); 
     }
 
     if (n < 0) {
@@ -139,7 +146,7 @@ int main(void)
     struct sockaddr_in addr = {0};
 
     signal(SIGPIPE, SIG_IGN);
-    /*終了した子プロセスを回収する*/
+    /*終了した子プロセスを回収する(ゾンビプロセス防止)*/
     signal(SIGCHLD, SIG_IGN);
 
     /* STEP 1: ソケットを作成 */
