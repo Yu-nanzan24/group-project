@@ -137,7 +137,7 @@ int main(void)
 {
     int listen_fd = -1;
     struct sockaddr_in addr = {0};
-    /*クライアントの突然の切断の対処*/
+
     signal(SIGPIPE, SIG_IGN);
     /*終了した子プロセスを回収する*/
     signal(SIGCHLD, SIG_IGN);
